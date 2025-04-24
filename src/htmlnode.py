@@ -143,18 +143,13 @@ def extract_title(markdown: str) -> str:
     raise ValueError("No H1 header found in markdown content")
 
 
-def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir_path: str):
+def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir_path: str, base_path: str = "/"): # Add base_path parameter with default
     """
     Recursively generates HTML pages from markdown files in a source directory.
-
-    Scans the dir_path_content, finds all '.md' files, generates HTML using
-    the template_path, and writes the output to dest_dir_path, preserving
-    the directory structure.
-
+    # ... (rest of docstring) ...
     Args:
-        dir_path_content: Path to the source content directory.
-        template_path: Path to the HTML template file.
-        dest_dir_path: Path to the destination directory for generated HTML files.
+        # ... (existing args) ...
+        base_path: The base path string to prepend to root-relative links/sources.
     """
     if not os.path.exists(dir_path_content):
         raise FileNotFoundError(f"Content source directory not found: {dir_path_content}")
@@ -165,58 +160,41 @@ def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir
 
     for item in os.listdir(dir_path_content):
         source_item_path = os.path.join(dir_path_content, item)
-        # Construct the potential destination path equivalent
         dest_item_path_equivalent = os.path.join(dest_dir_path, item)
 
         if os.path.isfile(source_item_path):
             if item.endswith(".md"):
-                # Change extension for the final destination path
-                # Using os.path.splitext for robustness
                 base_name, _ = os.path.splitext(item)
                 html_dest_path = os.path.join(dest_dir_path, base_name + ".html")
-
                 print(f"  Generating page for: {source_item_path} -> {html_dest_path}")
                 try:
-                    # Call the single-page generation function
-                    generate_page(source_item_path, template_path, html_dest_path)
+                    # Pass base_path to generate_page
+                    generate_page(source_item_path, template_path, html_dest_path, base_path)
                 except Exception as e:
-                    # Log errors but continue processing other files/dirs
                     print(f"    ERROR generating page for '{source_item_path}': {e}")
-            else:
-                # Optional: Could copy other files here if needed, but assignment focuses on MD->HTML
-                # print(f"  Skipping non-markdown file: {source_item_path}")
-                pass
+            # ... (else: skip non-markdown) ...
         elif os.path.isdir(source_item_path):
-            # Ensure the corresponding destination directory exists
             print(f"  Entering directory: {source_item_path}")
-            # No need to explicitly create dest_item_path_equivalent here,
-            # os.makedirs in generate_page handles leaf directories.
-            # And listdir needs the source dir, not dest dir, to exist.
-            # The destination path for the *next level* is handled by the recursive call.
-            # Recursive call
+            # Recursive call - pass base_path down
             generate_pages_recursive(
-                source_item_path,       # Source is the subdirectory
-                template_path,          # Template remains the same
-                dest_item_path_equivalent # Destination is the corresponding subdirectory
+                source_item_path,
+                template_path,
+                dest_item_path_equivalent,
+                base_path # Pass base_path along
             )
 
-#'''
-def generate_page(from_path: str, template_path: str, dest_path: str):
+def generate_page(from_path: str, template_path: str, dest_path: str, base_path: str = "/"): # Add base_path parameter with default
     """
     Generates an HTML page from a markdown file using a template.
-
-    Reads markdown from from_path, converts it to HTML, extracts the title,
-    reads the template from template_path, replaces placeholders, and writes
-    the final HTML to dest_path.
-
+    # ... (rest of docstring) ...
     Args:
-        from_path: Path to the source markdown file.
-        template_path: Path to the HTML template file.
-        dest_path: Path where the generated HTML file will be saved.
+        # ... (existing args) ...
+        base_path: The base path string to prepend to root-relative links/sources.
     """
-    print(f"Generating page from '{from_path}' to '{dest_path}' using '{template_path}'")
+    print(f"Generating page from '{from_path}' to '{dest_path}' using '{template_path}' (Base Path: {base_path})") # Added base_path to log
 
     # 1. Read markdown file
+    # ... (no change) ...
     try:
         with open(from_path, 'r', encoding='utf-8') as md_file:
             markdown_content = md_file.read()
@@ -226,6 +204,7 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
         raise RuntimeError(f"Error reading markdown file {from_path}: {e}")
 
     # 2. Read template file
+    # ... (no change) ...
     try:
         with open(template_path, 'r', encoding='utf-8') as tmpl_file:
             template_content = tmpl_file.read()
@@ -235,42 +214,42 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
         raise RuntimeError(f"Error reading template file {template_path}: {e}")
 
     # 3. Convert markdown to HTML
+    # ... (no change) ...
     try:
         html_node = markdown_to_html_node(markdown_content)
         html_content = html_node.to_html()
     except Exception as e:
-        # Catch potential errors from markdown parsing (e.g., invalid syntax)
         raise RuntimeError(f"Error converting markdown to HTML from {from_path}: {e}")
 
-
     # 4. Extract title
+    # ... (no change) ...
     try:
         title = extract_title(markdown_content)
     except ValueError as e:
-        # Propagate the error if title is missing
         raise ValueError(f"Could not extract title from {from_path}: {e}")
 
     # 5. Replace placeholders
-    if "{{ Title }}" not in template_content:
-         print(f"Warning: '{{{{ Title }}}}' placeholder not found in template: {template_path}")
-    if "{{ Content }}" not in template_content:
-         print(f"Warning: '{{{{ Content }}}}' placeholder not found in template: {template_path}")
-
+    # ... (warning checks no change) ...
     final_html = template_content.replace("{{ Title }}", title)
     final_html = final_html.replace("{{ Content }}", html_content)
 
-    # 6. Write the new HTML to dest_path
-    # Ensure destination directory exists
-    dest_dir = os.path.dirname(dest_path)
-    if dest_dir: # Only create if dirname is not empty (i.e., not root dir)
-        os.makedirs(dest_dir, exist_ok=True)
+    # --- ADD BASE PATH REPLACEMENT ---
+    print(f"  Applying base path '{base_path}' to links and sources...")
+    final_html = final_html.replace('href="/', f'href="{base_path}')
+    final_html = final_html.replace('src="/', f'src="{base_path}')
+    # --- / ADD BASE PATH REPLACEMENT ---
 
+
+    # 6. Write the new HTML to dest_path
+    # ... (no change) ...
+    dest_dir = os.path.dirname(dest_path)
+    if dest_dir:
+        os.makedirs(dest_dir, exist_ok=True)
     try:
         with open(dest_path, 'w', encoding='utf-8') as out_file:
             out_file.write(final_html)
     except Exception as e:
         raise RuntimeError(f"Error writing HTML file to {dest_path}: {e}")
-#'''
 
 def text_node_to_html_node(text_node):
         if text_node.text_type == TextType.TEXT:
